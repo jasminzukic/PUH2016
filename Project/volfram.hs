@@ -79,10 +79,11 @@ createExpression s = createExp (createRPN s) []
     createExp :: [String] -> [Expression] -> Expression
     createExp [] [s] = s
     createExp (x:xs) stack
-      | isOperator x = createExp xs $ opNode:tail (tail stack)
-      | isFunction x = createExp xs $ funNode:tail stack
-      | all isDigit x = createExp xs $ constNode:stack
-      | otherwise    = createExp xs $ varNode:stack
+      | isOperator x      = createExp xs $ opNode:tail (tail stack)
+      | isFunction x      = createExp xs $ funNode:tail stack
+      | all isDigit x     = createExp xs $ constNode:stack
+      | (head x == '-') && all isDigit (tail x) = createExp xs $ constNode:stack
+      | otherwise         = createExp xs $ varNode:stack
       where
         opNode = Op x (head $ tail stack) (head stack)
         funNode = Fun x (head stack)
@@ -125,11 +126,14 @@ simplify (Fun a b) = Fun a (simplify b)
 simplify (Op "+" (Const a) (Const b)) = Const (a + b)
 simplify (Op "+" a (Const 0))         = simplify a
 simplify (Op "+" (Const 0) a)         = simplify a
+simplify (Op "+" a (Op "-" b c))      = Op "-" (simplify (Op "+" (simplify a) (simplify b))) (simplify c)
+
+simplify (Op "*" (Const (-1)) a)      = Op "-" (Const 0) (simplify a)
 
 simplify (Op "-" (Const a) (Const b)) = Const (a - b)
 simplify (Op "-" a (Const 0))         = simplify a
-simplify (Op "-" (Const 0) a)         = Op "*" (Const (-1)) (simplify a)
-simplify (Op "-" a b)                 = Op "+" (simplify a) (Op "*" (Const (-1)) (simplify b))
+
+--simplify (Op "-" a b)                 = Op "+" (simplify a) (Op "*" (Const (-1)) (simplify b))
 
 simplify (Op "*" (Const a) (Const b)) = Const(a * b)
 simplify (Op "*" a (Const 1))         = simplify a
